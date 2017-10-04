@@ -5,9 +5,9 @@ var canvas = document.getElementById('canvas')
   , height = canvas.height = window.innerHeight
   , width = canvas.width = window.innerWidth
   , bgColor = 'black'
-  , mapScale = 5
-  , cellSize = 4
-  , cellNumber = 20000
+  , mapScale = 10
+  , cellSize = 10
+  , cellNumber = 200000
   , keysDown = {}
   , keyMap = {
       '87': 0,
@@ -153,6 +153,10 @@ var Map = function(width, height) {
         })
       }
     }.bind(this))
+
+    this.clear = function() {
+      this.cells = []
+    }
   }
 
   this.draw = function() {
@@ -168,12 +172,28 @@ var Map = function(width, height) {
       curr.y += d.y
     })
   }
+
+  // takes a player object and returns the currently occupied cell
+  this.currentCell = function(player) {
+    return _.find(this.cells, function(cell) {
+      return player.x === cell.x && player.y === cell.y
+    })
+  }
 }
 
 var Player = function(map) {
   this.x = parseInt(width/2)
   this.y = parseInt(height/2)
   this.map = map
+
+  this.detectCollision = function(x, y) {
+    return _.find(this.map.cells, function(i) {
+      return Math.abs(i.x - this.x) <= 1 &&
+        Math.abs(i.y - (this.y - cellSize)) <= 1
+    }.bind(this)) !== undefined ?
+      this.y -= cellSize :
+    null
+  }
 
   this.move = function() {
     _.forIn(keysDown, function(val, key, obj) {
@@ -211,6 +231,7 @@ var Player = function(map) {
       null
     }.bind(this))
 
+    // Pan the map
     if(this.x < 0) {
       this.map.pan({x: width, y: 0})
       this.x += width
@@ -224,11 +245,29 @@ var Player = function(map) {
       this.map.pan({x: 0, y: -height})
       this.y -= height
     }
+
+    // Check for exits
+    if(this.map.currentCell(this) && this.map.currentCell(this).exit) {
+      this.map.clear()
+      this.map.generate()
+      this.map.center()
+      this.alignToStart()
+    }
+
   }.bind(this)
 
   this.center = function() {
     this.x += xMove
     this.y += yMove
+  }
+
+  this.alignToStart = function() {
+    var entrance = _.find(this.map.cells, function(cell) {
+      return cell.entrance
+    })
+
+    this.x = entrance.x
+    this.y = entrance.y
   }
 
   this.draw = function() {
@@ -286,4 +325,3 @@ window.addEventListener('keyup', function(e) {
 })
 
 requestAnimationFrame(draw)
-
